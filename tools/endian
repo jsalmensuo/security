@@ -1,0 +1,67 @@
+#!/bin/bash
+
+: <<'COMMENT'
+PORTABILITY NOTE:
+This script uses #!/bin/bash (Absolute Path) for maximum security against 
+PATH Hijacking. If you receive a "bad interpreter" error (common on macOS, 
+NixOS, or BSD), you may switch to: #!/usr/bin/env bash.
+
+Note: Using 'env' increases portability but introduces a security risk where 
+a malicious 'bash' binary placed in a user's PATH could be executed instead 
+of the system shell.
+
+Ideally one would omit the shebang and invoke the script directly using the 
+command bash script_name.
+COMMENT
+
+#============================================================================ 
+# This utility demonstrates how CPU byte-ordering (Endianness) affects data by 
+# manually manipulating hex streams using standard Linux pipes.
+# This script is intended for use in a trusted environment.
+#============================================================================
+
+# Moves to the script location and prints the absolute path.
+SCRIPT_LOCATION="$(cd "$(dirname "$0")" && pwd)"
+# Removes the path keeping only the file name.
+SCRIPT_NAME="$(basename "$0")"
+
+# Check for existing symlink
+if [[ "$SCRIPT_NAME" == "endian" ]] && [[ ! -L "$SCRIPT_LOCATION/unendian" ]]; then
+    # Create symlink for reversing operations
+    ln -s "$SCRIPT_LOCATION/endian" "$SCRIPT_LOCATION/unendian"
+    echo "Symlink: unendian -> endian"
+fi
+
+# Check if invoked with command endian or unendian
+case "$SCRIPT_NAME" in
+    endian)
+        # String → big-endian               *
+        echo "Big endian:"
+        for arg in "$@"; do
+            echo -n "$(echo -n "$arg" | xxd -p | fold -w2 | tr -d '\n') "
+        done
+        echo
+        echo
+        # String → little-endian (reverse byte pairs)
+        echo "Little endian:"
+        for arg in "$@"; do
+            echo -n "$(echo -n "$arg" | xxd -p | fold -w2 | tac | tr -d '\n') "
+        done
+        echo
+        ;;
+    unendian)
+        # Big-endian → string
+        echo "For big endian:"
+        for arg in "$@"; do
+            echo -n "$(echo -n "$arg" | sed 's/0x//g' | fold -w2 | tr -d '\n' | xxd -r -p) "
+        done
+        echo
+        echo
+        # Little-endian → string (reverse byte pairs back, then decode)
+        echo "For little endian:"
+        for arg in "$@"; do
+            echo -n "$(echo -n "$arg" | sed 's/0x//g' | fold -w2 | tac |  tr -d '\n' |  xxd -r -p) "
+        done
+        echo
+        ;;
+esac
